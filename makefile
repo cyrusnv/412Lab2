@@ -1,16 +1,32 @@
-EXECUTABLE = 412fe
+EXECUTABLE = 412alloc
 TARNAME = csn2.tar
-FILES = scanner.c makefile README
+CC = gcc
+CFLAGS = -Wall -g
+
+# Source files
+SOURCES = realloc.c scanner.c
+OBJECTS = $(SOURCES:.c=.o)
+
+# Header files
+HEADERS = ir.h
+
+# Files to include in tar
+FILES = $(SOURCES) $(HEADERS) Makefile README
 
 all: build
 
 build: $(EXECUTABLE)
 
-$(EXECUTABLE): scanner.c
-	gcc -o $(EXECUTABLE) scanner.c
+# Link the final executable
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(CFLAGS) -o $(EXECUTABLE) $(OBJECTS)
+
+# Compile source files to object files
+%.o: %.c $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(EXECUTABLE) *.o *~ core core.* vgcore.* $(TARNAME)
+	rm -f $(EXECUTABLE) $(OBJECTS) *~ core core.* vgcore.* $(TARNAME)
 
 tar: $(FILES)
 	tar -cvf $(TARNAME) $(FILES)

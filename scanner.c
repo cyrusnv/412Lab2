@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <unistd.h>
 
+#include "ir.h"
+
 // Function prototypes; you know the vibe.
 void finish_memop(int lexeme);
 void finish_loadI(int lexeme);
@@ -33,30 +35,7 @@ struct Instruction *bcmalloc();
                 "    -r       prints human readable version of parser's IR\n"              \
                 "If none is specified, the default action is '-p'.\n"
 
-// Parts of speech
-#define NOP 0
-#define OUTPUT 1
-#define INTO 2
-#define COMMA 3
-#define EOL 4
-#define MEMOP 5
-#define ARITHOP 6
-#define LOADI 7
-#define LOAD 8
-#define STORE 9
-#define LOADIL 10
-#define ADD 11
-#define SUB 12
-#define MULT 13
-#define LSHIFT 14
-#define RSHIFT 15
-#define OUTPUTL 16
-#define NOPL 17
-#define COMMAL 18
-#define INTOL 19
-#define EOFF 20
-#define CONSTANT 21
-#define REGISTER 22
+
 
 // Let's define some structs for the IR, yeah?
 /* For now, I'm not using operand. I think the numbers are easy enough.
@@ -67,30 +46,6 @@ struct Operand {
      int nu;
 };
 */
-
-struct Instruction
-{
-     struct Instruction *next;
-     struct Instruction *prev;
-
-     int line;
-     int opcode;
-
-     int sr1;
-     int vr1;
-     int pr1;
-     int nu1;
-
-     int sr2;
-     int vr2;
-     int pr2;
-     int nu2;
-
-     int sr3;
-     int vr3;
-     int pr3;
-     int nu3;
-};
 
 // Global variables. I am so sorry, Dr. Rixner.
 char *file_buffer;
@@ -163,47 +118,10 @@ int Getline()
 }
 
 // A function that does the bulk allocation when needed, or just returns a pointer
-/*
 struct Instruction *
 bcmalloc()
 {
      // The pointer we're going to ultimately return, where the next record starts
-     struct Instruction *newrec;
-     // If we're in the very first pass
-     printf("ir_curr: %d", ir_curr);
-     if (ir_curr == 0)
-     {
-          // Allocate enough space for 2000 records
-          ir_start = malloc(2000 * sizeof(struct Instruction));
-          // Ensure we allocate more memory in the future
-          expansion_count++;
-     }
-     else if (ir_curr % 2000 == 0)
-     {
-
-          // Reallocate with an expanded size
-          struct Instruction *newptr = realloc(ir_start, (expansion_count * 2000) * sizeof(struct Instruction));
-          ir_start = newptr;
-          printf("expansion count: %d\n", expansion_count);
-          printf("newptr: %p\n", newptr);
-          printf("ir_start: %p\n", ir_start);
-          // Ensure we allocate more memory in the future
-          expansion_count++;
-     }
-     // Return the pointer to the current block, and iterate what the next
-     // block will be.
-     newrec = &ir_start[ir_curr];
-     printf("newrec: %p\n", newrec);
-     ir_curr++;
-     return newrec;
-}
-*/
-// A function that does the bulk allocation when needed, or just returns a pointer
-struct Instruction *
-bcmalloc()
-{
-     // The pointer we're going to ultimately return, where the next record starts
-     struct Instruction *newrec;
      // If we're in the very first pass
      //printf("ir_curr: %d", ir_curr);
      if (ir_curr == 0)
@@ -222,7 +140,6 @@ bcmalloc()
           struct Instruction *newptr = malloc(2000 * sizeof(struct Instruction));
           ir_curr = 0;
           curr_rec = newptr;
-          //printf("newrec: %p\n", newrec);
           ir_curr++;
           return curr_rec;
      }
@@ -231,7 +148,6 @@ bcmalloc()
           // Return the pointer to the current block, and iterate what the next
           // block will be.
           curr_rec++;
-          //printf("newrec: %p\n", curr_rec);
           ir_curr++;
           return curr_rec;
      }
@@ -625,8 +541,8 @@ void parse()
      }
 }
 
-// Ok now how the hell do I create and run a C program again?
-int main(int argc, char **argv)
+// This used to be running main. It's not anymore, obviously.
+struct Instruction* buildIR(char* filename)
 {
      /*
       * while (you're not at the end of the file) {
@@ -634,13 +550,10 @@ int main(int argc, char **argv)
       * }
       *
       * */
-     (void)argc;
-     //(void)argv;
 
      // Set up the doubly-linked, cicular list that will be your IR.
      i_start = bcmalloc();
      i_start->line = 0;
-     // printf("line: %d\n", i_start->line);
      i_end = bcmalloc();
      i_end->line = -1;
      i_start->next = i_end;
@@ -648,81 +561,12 @@ int main(int argc, char **argv)
      i_end->next = i_start;
      i_end->prev = i_start;
 
-     /* Stupid lines to make sure I could size things correctly.
-     printf("size of i_start: %ld\n", sizeof(i_start));
-     printf("size of 14 ints: %ld\n", (14 * sizeof(int)));
-     printf("size of a pointer: %ld\n", sizeof(void *));
-     */
+     // Pretty sure this isn't needed, but I'm not killing it just yet.
+     //int fcount = 0;
 
-     // Parse the command line.
-
-     int fcount = 0;
-
-     int command;
-     while ((command = getopt(argc, argv, "hrps")) != -1)
-     {
-          switch (command)
-          {
-          case 'h': // Help and flag description
-               h_flag = 1;
-               fcount++;
-               break;
-          case 'r': // Print out IR
-               r_flag = 1;
-               fcount++;
-               break;
-          case 'p': // Process operation count
-               p_flag = 1;
-               fcount++;
-               break;
-          case 's': // Print line, token type, lexeme
-               s_flag = 1;
-               fcount++;
-               break;
-          default:
-               fprintf(stderr, "ERROR: Incorrect flag specified.\n");
-               hadError = true;
-               printf(HELPMSG);
-               exit(-1);
-          }
-     }
-
-     if (fcount > 1)
-     {
-          fprintf(stderr, "Error: multiple flags detected. Taking highest priority flag. Use -h for more info.\n");
-     }
-
-     if (h_flag)
-     {
-          printf(HELPMSG);
-          exit(1);
-          r_flag = 0;
-          p_flag = 0;
-          s_flag = 0;
-     }
-     else if (r_flag)
-     {
-          p_flag = 0;
-          s_flag = 0;
-     }
-     else if (p_flag)
-     {
-          s_flag = 0;
-     }
-     else if (!s_flag)
-     {
-          p_flag = 1;
-     }
-
-     /*
-     printf("h_flag: %d\n", h_flag);
-     printf("r_flag: %d\n", r_flag);
-     printf("p_flag: %d\n", p_flag);
-     printf("s_flag: %d\n", s_flag);
-     */
 
      // char *input_filename = "./test_inputs/sample.txt";
-     char *input_filename = argv[optind];
+     char *input_filename = filename;
      input_file = fopen(input_filename, "r");
      if (input_file == NULL)
      {
@@ -731,8 +575,6 @@ int main(int argc, char **argv)
           exit(-1);
      }
      Getline();
-     // printf("Got past here!\n");
-     //  printf("The initial line, before parsing starts: %s\n", buffer_ptr);
      parse();
 
      // Do a stupid check to decrement the line of the last
@@ -742,47 +584,8 @@ int main(int argc, char **argv)
           i_end->prev->line++;
      }
 
-     if (!hadError && r_flag)
-     {
-          printIR();
-     }
+     return (i_start);
 
-     if (p_flag)
-     {
-          if (hadError)
-          {
-               printf("Parse found errors.\n");
-          }
-          else
-          {
-               printf("Parse succeeded. Processed %d operations.\n", opcount);
-          }
-     }
-
-     /* The old testing block for when there was just a scanner. */
-     /*
-     //file_buffer = Malloc(bufsize);
-     for (int i = 0; i < 6; i++) {
-     printf("ITERATION: %d\n", i);
-     int testword[2] = { -2, -2 };
-     gettoken(testword);
-     if (testword[0] == -2 && testword[1] == -2) {
-          printf("ERRORED OUT! WOOHOO!\n");
-     }
-     else if (testword[0] != CONSTANT && testword[0] != REGISTER) {
-          printf("TOKEN FOUND: %s, ", cat_lex_list[testword[0]]);
-          printf("%s\n", cat_lex_list[testword[1]]);
-     } else {
-          if (testword[0] == CONSTANT) {
-               printf("TOKEN FOUND: %s, ", cat_lex_list[testword[0]]);
-               printf("%d\n", testword[1]);
-          } else {
-               printf("TOKEN FOUND: %s, ", cat_lex_list[testword[0]]);
-               printf("r%d\n", testword[1]);
-          }
-     }
-     }
-     */
 }
 
 /*
@@ -1251,6 +1054,39 @@ void printIR()
           printf("  sr1: %d\n", currInstr->sr1);
           printf("  sr2: %d\n", currInstr->sr2);
           printf("  sr3: %d\n", currInstr->sr3);
+          printf("\n");
+
+          currInstr = currInstr->next;
+     }
+}
+
+void printIR2(struct Instruction* ir)
+{
+     printf("**PRINT IR**\n");
+     struct Instruction *currInstr = ir;
+     printf("starting line number: %d\n", currInstr->line);
+     printf("(To be clear: line 0 is a dummy head, not an actual line.)\n");
+
+     while (currInstr->line != -1)
+     {
+
+          printf("LINE: %d\n", currInstr->line);
+          printf("  opcode: %s\n", cat_lex_list[currInstr->opcode]);
+          printf("  arg1:\n");
+          printf("       sr1: %d\n", currInstr->sr1);
+          printf("       vr1: %d\n", currInstr->vr1);
+          printf("       pr1: %d\n", currInstr->pr1);
+          printf("       nu1: %d\n", currInstr->nu1);
+          printf("  arg2:\n");
+          printf("       sr2: %d\n", currInstr->sr2);
+          printf("       vr2: %d\n", currInstr->vr2);
+          printf("       pr2: %d\n", currInstr->pr2);
+          printf("       nu2: %d\n", currInstr->nu2);
+          printf("  arg3:\n");
+          printf("       sr3: %d\n", currInstr->sr3);
+          printf("       vr3: %d\n", currInstr->vr3);
+          printf("       pr3: %d\n", currInstr->pr3);
+          printf("       nu3: %d\n", currInstr->nu3);
           printf("\n");
 
           currInstr = currInstr->next;
