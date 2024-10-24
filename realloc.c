@@ -7,9 +7,9 @@
 // Function Declarations
 void rename_registers(struct Instruction* ir);
 void print_allocated_code(struct Instruction* ir);
-int handleThree(struct Instruction* currOp, int VRName);
-int handleStore(struct Instruction* currOp, int VRName);
-int handleLoad(struct Instruction* currOp, int VRName);
+int handleThree(struct Instruction* currOp, int VRName, int index);
+int handleStore(struct Instruction* currOp, int VRName, int index);
+int handleLoad(struct Instruction* currOp, int VRName, int index);
 int handleLoadI(struct Instruction* currOp, int VRName);
 
 // Global Maps
@@ -78,6 +78,7 @@ void rename_registers(struct Instruction* ir) {
 
     // Main loop over the operations, bottom to top
     struct Instruction* currOp = ir->prev->prev;
+    int index = (currOp->line) - 1;
     while (currOp->line != 0) {
         int currCode = currOp->opcode;
         // printf("line: %d\n", currOp->line);
@@ -85,21 +86,22 @@ void rename_registers(struct Instruction* ir) {
 
         // There are basically five versions that I'm going to do, based on the operand.
         if(currCode == ADD || currCode == SUB || currCode == MULT || currCode == LSHIFT || currCode == RSHIFT) {
-            VRName = handleThree(currOp, VRName);
+            VRName = handleThree(currOp, VRName, index);
         } else if (currCode == STORE) {
-            VRName = handleStore(currOp, VRName);
+            VRName = handleStore(currOp, VRName, index);
         } else if (currCode == LOAD) {
-            VRName = handleLoad(currOp, VRName);
+            VRName = handleLoad(currOp, VRName, index);
         } else if (currCode == LOADIL) {
             VRName = handleLoadI(currOp, VRName);
         }
 
         currOp = currOp->prev;
+        index--;
     }
 
 }
 
-int handleThree(struct Instruction* currOp, int VRName) {
+int handleThree(struct Instruction* currOp, int VRName, int index) {
     /* Defined operand */
     if(SRtoVR[currOp->sr3] == -1) {
         SRtoVR[currOp->sr3] = VRName;
@@ -126,14 +128,14 @@ int handleThree(struct Instruction* currOp, int VRName) {
     currOp->vr2 = SRtoVR[currOp->sr2];
     currOp->nu2 = LU[currOp->sr2];
 
-    /* reset indexes for operands 1 and 2 */
-    LU[currOp->sr1] = currOp->line;
-    LU[currOp->sr2] = currOp->line;
+    /* reset last uses for operands 1 and 2 to be index */
+    LU[currOp->sr1] = index;
+    LU[currOp->sr2] = index;
 
     return VRName;
 }
 
-int handleStore(struct Instruction* currOp, int VRName) {
+int handleStore(struct Instruction* currOp, int VRName, int index) {
     // NOTE: Treat both operands as uses here!
     /* used operand 1 */
     if(SRtoVR[currOp->sr1] == -1) {
@@ -151,14 +153,14 @@ int handleStore(struct Instruction* currOp, int VRName) {
     currOp->vr3 = SRtoVR[currOp->sr3];
     currOp->nu3 = LU[currOp->sr3];
 
-    /* reset indexes for operands 1 and 2 */
-    LU[currOp->sr1] = currOp->line;
-    LU[currOp->sr3] = currOp->line;
+    /* reset last uses for operands 1 and 2 to be index */
+    LU[currOp->sr1] = index;
+    LU[currOp->sr3] = index;
 
     return VRName;
 }
 
-int handleLoad(struct Instruction* currOp, int VRName) {
+int handleLoad(struct Instruction* currOp, int VRName, int index) {
     /* Defined operand */
     if(SRtoVR[currOp->sr3] == -1) {
         SRtoVR[currOp->sr3] = VRName;
@@ -177,8 +179,8 @@ int handleLoad(struct Instruction* currOp, int VRName) {
     currOp->vr1 = SRtoVR[currOp->sr1];
     currOp->nu1 = LU[currOp->sr1];
 
-    /* reset indexes for operand 1 */
-    LU[currOp->sr1] = currOp->line;
+    /* reset last uses for operand 1 to be index */
+    LU[currOp->sr1] = index;
 
     return VRName;
 }
