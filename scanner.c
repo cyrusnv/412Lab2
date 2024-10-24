@@ -662,8 +662,25 @@ void finish_memop(int lexeme)
                               newinstr->line = fileline - 1;
                               // OPCODE AH SHIT
                               newinstr->opcode = lexeme;
+                              // These have moved below a bit:
+                              // newinstr->sr1 = firstregister[1];
+                              // newinstr->sr3 = secondregister[1];
+
+                              // All the other silly values to pre-fill:
                               newinstr->sr1 = firstregister[1];
+                              newinstr->vr1 = -1;
+                              newinstr->pr1 = -1;
+                              newinstr->nu1 = -1;
+
+                              newinstr->sr2 = -1;
+                              newinstr->vr2 = -1;
+                              newinstr->pr2 = -1;
+                              newinstr->nu2 = -1;
+
                               newinstr->sr3 = secondregister[1];
+                              newinstr->vr3 = -1;
+                              newinstr->pr3 = -1;
+                              newinstr->nu3 = -1;
                          }
                          opcount++;
                          /*
@@ -755,8 +772,25 @@ void finish_loadI(int lexeme)
                               newinstr->line = fileline - 1;
                               // OPCODE AH SHIT
                               newinstr->opcode = lexeme;
+                              // These have moved down:
+                              //newinstr->sr1 = constant[1];
+                              //newinstr->sr3 = register_t[1];
+
+                              // All the other silly values to pre-fill:
                               newinstr->sr1 = constant[1];
+                              newinstr->vr1 = -1;
+                              newinstr->pr1 = -1;
+                              newinstr->nu1 = -1;
+
+                              newinstr->sr2 = -1;
+                              newinstr->vr2 = -1;
+                              newinstr->pr2 = -1;
+                              newinstr->nu2 = -1;
+
                               newinstr->sr3 = register_t[1];
+                              newinstr->vr3 = -1;
+                              newinstr->pr3 = -1;
+                              newinstr->nu3 = -1;
                          }
                          opcount++;
                          /*
@@ -857,9 +891,26 @@ void finish_arithop(int lexeme)
                                         newinstr->line = fileline - 1;
                                         // OPCODE AH SHIT
                                         newinstr->opcode = lexeme;
+                                        // These have moved down a few lines:
+                                        // newinstr->sr1 = reg1[1];
+                                        // newinstr->sr2 = reg2[1];
+                                        // newinstr->sr3 = reg3[1];
+
+                                        // All the other silly values to pre-fill:
                                         newinstr->sr1 = reg1[1];
+                                        newinstr->vr1 = -1;
+                                        newinstr->pr1 = -1;
+                                        newinstr->nu1 = -1;
+
                                         newinstr->sr2 = reg2[1];
+                                        newinstr->vr2 = -1;
+                                        newinstr->pr2 = -1;
+                                        newinstr->nu2 = -1;
+
                                         newinstr->sr3 = reg3[1];
+                                        newinstr->vr3 = -1;
+                                        newinstr->pr3 = -1;
+                                        newinstr->nu3 = -1;
                                    }
                                    opcount++;
                                    /*
@@ -953,7 +1004,24 @@ void finish_output(int lexeme)
                     newinstr->line = fileline - 1;
                     // OPCODE AH SHIT
                     newinstr->opcode = lexeme;
+                    // Moved a bit down...
+                    // newinstr->sr1 = constant[1];
+
+                    // All the other silly values to pre-fill:
                     newinstr->sr1 = constant[1];
+                    newinstr->vr1 = -1;
+                    newinstr->pr1 = -1;
+                    newinstr->nu1 = -1;
+
+                    newinstr->sr2 = -1;
+                    newinstr->vr2 = -1;
+                    newinstr->pr2 = -1;
+                    newinstr->nu2 = -1;
+
+                    newinstr->sr3 = -1;
+                    newinstr->vr3 = -1;
+                    newinstr->pr3 = -1;
+                    newinstr->nu3 = -1;
                }
                opcount++;
                // printf("**DOUBLE CHECKING NEWINSTR**\n");
