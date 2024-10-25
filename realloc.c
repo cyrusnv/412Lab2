@@ -11,12 +11,15 @@ int handleThree(struct Instruction* currOp, int VRName, int index);
 int handleStore(struct Instruction* currOp, int VRName, int index);
 int handleLoad(struct Instruction* currOp, int VRName, int index);
 int handleLoadI(struct Instruction* currOp, int VRName);
+void print_renamed_code(struct Instruction* ir);
 
 // Global Maps
 int* SRtoVR = NULL;
 int* LU = NULL;
 
 // Global Variables
+int maxlive = 0;
+int livecount = 0;
 
 
 int main(int argc, char **argv) {
@@ -51,7 +54,10 @@ int main(int argc, char **argv) {
     rename_registers(ir);
 
     // Print out the new IR!
-    printIR2(ir);
+    //printIR2(ir);
+
+    // Print the renamed code
+    print_renamed_code(ir);
     
     // Print the transformed code
     //print_allocated_code(ir);
@@ -97,6 +103,10 @@ void rename_registers(struct Instruction* ir) {
 
         currOp = currOp->prev;
         index--;
+
+        if (livecount > maxlive) {
+            maxlive = livecount;
+        }
     }
 
 }
@@ -106,11 +116,13 @@ int handleThree(struct Instruction* currOp, int VRName, int index) {
     if(SRtoVR[currOp->sr3] == -1) {
         SRtoVR[currOp->sr3] = VRName;
         VRName++;
+        livecount++;
     }
     currOp->vr3 = SRtoVR[currOp->sr3];
     currOp->nu3 = LU[currOp->sr3];
     SRtoVR[currOp->sr3] = -1;
     LU[currOp->sr3] = -1;
+    // livecount--;
 
     /* used operand 1 */
     if(SRtoVR[currOp->sr1] == -1) {
@@ -119,6 +131,7 @@ int handleThree(struct Instruction* currOp, int VRName, int index) {
     }
     currOp->vr1 = SRtoVR[currOp->sr1];
     currOp->nu1 = LU[currOp->sr1];
+    // livecount++;
 
     /* used operand 2 */
     if(SRtoVR[currOp->sr2] == -1) {
@@ -127,6 +140,9 @@ int handleThree(struct Instruction* currOp, int VRName, int index) {
     }
     currOp->vr2 = SRtoVR[currOp->sr2];
     currOp->nu2 = LU[currOp->sr2];
+    if (currOp->sr2 != currOp->sr1) {
+        livecount++;
+    }
 
     /* reset last uses for operands 1 and 2 to be index */
     LU[currOp->sr1] = index;
@@ -144,6 +160,7 @@ int handleStore(struct Instruction* currOp, int VRName, int index) {
     }
     currOp->vr1 = SRtoVR[currOp->sr1];
     currOp->nu1 = LU[currOp->sr1];
+    livecount++;
 
     /* used operand 2 */
     if(SRtoVR[currOp->sr3] == -1) {
@@ -152,6 +169,10 @@ int handleStore(struct Instruction* currOp, int VRName, int index) {
     }
     currOp->vr3 = SRtoVR[currOp->sr3];
     currOp->nu3 = LU[currOp->sr3];
+
+    if (currOp->sr1 != currOp->sr3) {
+        livecount++;
+    }
 
     /* reset last uses for operands 1 and 2 to be index */
     LU[currOp->sr1] = index;
@@ -165,11 +186,13 @@ int handleLoad(struct Instruction* currOp, int VRName, int index) {
     if(SRtoVR[currOp->sr3] == -1) {
         SRtoVR[currOp->sr3] = VRName;
         VRName++;
+        livecount++;
     }
     currOp->vr3 = SRtoVR[currOp->sr3];
     currOp->nu3 = LU[currOp->sr3];
     SRtoVR[currOp->sr3] = -1;
     LU[currOp->sr3] = -1;
+    // livecount--;
 
     /* used operand 1 */
     if(SRtoVR[currOp->sr1] == -1) {
@@ -178,6 +201,7 @@ int handleLoad(struct Instruction* currOp, int VRName, int index) {
     }
     currOp->vr1 = SRtoVR[currOp->sr1];
     currOp->nu1 = LU[currOp->sr1];
+    // livecount++;
 
     /* reset last uses for operand 1 to be index */
     LU[currOp->sr1] = index;
@@ -187,16 +211,74 @@ int handleLoad(struct Instruction* currOp, int VRName, int index) {
 
 int handleLoadI(struct Instruction* currOp, int VRName) {
     /* Defined operand */
-    printf("At least I'm here?\n");
     if(SRtoVR[currOp->sr3] == -1) {
-        printf("Boom I'm here\n");
         SRtoVR[currOp->sr3] = VRName;
         VRName++;
+        livecount++;
     }
     currOp->vr3 = SRtoVR[currOp->sr3];
     currOp->nu3 = LU[currOp->sr3];
     SRtoVR[currOp->sr3] = -1;
     LU[currOp->sr3] = -1;
 
+    livecount--;
+
     return VRName;
+}
+
+void print_renamed_code(struct Instruction* ir) {
+    struct Instruction* curr = ir->next;  // Skip dummy head
+    
+    while (curr->line != -1) {  // Until we hit end sentinel
+        switch(curr->opcode) {
+            case LOAD:
+                printf("load r%d => r%d\n", 
+                    curr->vr1, curr->vr3);
+                break;
+                
+            case STORE:
+                printf("store r%d => r%d\n", 
+                    curr->vr1, curr->vr3);
+                break;
+                
+            case LOADIL:
+                printf("loadI %d => r%d\n", 
+                    curr->sr1, curr->vr3);
+                break;
+                
+            case ADD:
+                printf("add r%d, r%d => r%d\n", 
+                    curr->vr1, curr->vr2, curr->vr3);
+                break;
+                
+            case SUB:
+                printf("sub r%d, r%d => r%d\n", 
+                    curr->vr1, curr->vr2, curr->vr3);
+                break;
+                
+            case MULT:
+                printf("mult r%d, r%d => r%d\n", 
+                    curr->vr1, curr->vr2, curr->vr3);
+                break;
+                
+            case LSHIFT:
+                printf("lshift r%d, r%d => r%d\n", 
+                    curr->vr1, curr->vr2, curr->vr3);
+                break;
+                
+            case RSHIFT:
+                printf("rshift r%d, r%d => r%d\n", 
+                    curr->vr1, curr->vr2, curr->vr3);
+                break;
+                
+            case OUTPUTL:
+                printf("output %d\n", curr->sr1);
+                break;
+                
+            case NOPL:
+                printf("nop\n");
+                break;
+        }
+        curr = curr->next;
+    }
 }
