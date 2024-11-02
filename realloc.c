@@ -11,14 +11,38 @@ int handleStore(struct Instruction *currOp, int VRName, int index);
 int handleLoad(struct Instruction *currOp, int VRName, int index);
 int handleLoadI(struct Instruction *currOp, int VRName);
 void print_renamed_code(struct Instruction *ir);
+void reallocate_registers(struct Instruction *ir);
+void push(int pr);
+int pop();
+void clearMarks();
+int spill(struct Instruction* op, int vir_reg, int phys_reg);
+int restore(struct Instruction* op, int vir_reg, int phys_reg);
+
+
+void allocHandleThree(struct Instruction *op);
 
 // Global Maps
 int *SRtoVR = NULL;
 int *LU = NULL;
 
-// Global Variables
+int *VRtoPR = NULL;
+int *VRtoSpillLoc = NULL;
+int *PRtoVR = NULL;
+int *PRNU = NULL;
+
+int *PRmarker = NULL;
+
+/* Global Variables */
+// Keep track of the # of PRs available and MAXLIVE accounting.
 int maxlive = 0;
 int livecount = 0;
+int prcount;
+bool reserveregister = false;
+// Keep track of your PR stack for allocation.
+int *prstack = NULL;
+int stacktop = 0;
+// Address for where the next value will be spilled to, if necessary.
+int next_spill_loc = 32768;
 
 int main(int argc, char **argv)
 {
@@ -38,10 +62,11 @@ int main(int argc, char **argv)
             fprintf(stderr, "Usage: 412alloc k filename\n");
             return 1;
         }
+    } else if (argc > 1) {
 
         // Parse k value
-        int k = atoi(argv[1]);
-        if (k < 3 || k > 64)
+        prcount = atoi(argv[1]);
+        if (prcount < 3 || prcount > 64)
         {
             fprintf(stderr, "ERROR: k must be between 3 and 64\n");
             return 1;
@@ -49,6 +74,7 @@ int main(int argc, char **argv)
     }
 
     // Build IR using your Lab 1 code
+    // Cyrus you'll need to check to make sure the file is valid here...
     struct Instruction *ir = buildIR(argv[2]);
     if (ir == NULL)
     {
@@ -125,6 +151,235 @@ void rename_registers(struct Instruction *ir)
         }
     }
 }
+
+void reallocate_registers(struct Instruction *ir) {
+    // Initialize VRtoPR and VRtoSpillLoc
+    int mapsize = opcount * 3;
+    VRtoPR = malloc(mapsize * sizeof(int));
+    VRtoSpillLoc = malloc(mapsize * sizeof(int));
+    for (int i = 0; i < mapsize; i++) {
+        VRtoPR[i] = -1;
+        VRtoSpillLoc[i] = -1;
+    }
+
+    // Know whether or not you're going to reserve the last register
+    if (maxlive > prcount) {
+        reserveregister = true;
+    }
+
+    // Initialize PR stack
+    // TODO: consider changing this based on maxlive
+    prstack = malloc(prcount * sizeof(int));
+
+    // Initialize PRtoVR, PRNU
+    PRtoVR = malloc(prcount * sizeof(int));
+    PRNU = malloc(prcount * sizeof(int));
+    for (int i = 0; i < prcount; i++) {
+        PRtoVR[i] = -1;
+        PRNU[i] = -1;
+        push(i);
+    }
+
+    // Initialize your marking list
+    PRmarker = malloc(prcount *sizeof(int));
+
+    // Now the fun stuff: you gotta iterate over the block
+    struct Instruction *op = ir->next;
+    while (op->line != -1) {
+        // clear the mark in each PR
+        clearMarks();
+
+        int currCode = op->opcode;
+        // printf("line: %d\n", op->line);
+        // printf("currCode: %d\n\n", currCode);
+
+        // There are basically five versions that I'm going to do, based on the operand.
+        if (currCode == ADD || currCode == SUB || currCode == MULT || currCode == LSHIFT || currCode == RSHIFT)
+        {
+            allocHandleThree(op);
+        }
+        else if (currCode == STORE)
+        {
+            allocHandleStore(op);
+        }
+        else if (currCode == LOAD)
+        {
+            allocHandleLoad(op);
+        }
+        else if (currCode == LOADIL)
+        {
+            allocHandleLoadI(op);
+        }
+    }
+}
+
+void clearMarks() {
+    for(int i = 0; i < prcount; i++) {
+        PRmarker[i] = 0;
+    }
+}
+
+/* Inputs
+ *  vir_reg: the virtual register we are trying to assign a physical register to.
+ *  next_use: the instruction in which vir_reg is next used.
+ *  op: the current instruction we are attempting to allocate.
+ */
+int getPR(struct Instruction* op, int vir_reg, int next_use) {
+    // If the PR is free... (you should have a stack)
+    int pr;
+    if (stacktop > 0) {
+        pr = pop();
+    } else {
+        pr = pickPRtospill();
+        spill(op, vir_reg, pr);
+    }
+
+    // Update your maps
+    VRtoPR[vir_reg] = pr;
+    PRtoVR[pr] = vir_reg;
+    PRNU[pr] = next_use;
+
+    return(pr);
+}
+
+// Helper function that performs the search for a a PR to spill.
+int pickPRtospill() {
+    int currPR = -1;
+    int currNU = -1;
+    for (int i = 0; i < prcount; i++) {
+        if (PRNU[i] > currNU) {
+            currPR = i;
+            currNU = PRNU[i];
+        }
+    }
+    return(currPR);
+}
+
+/* Inputs
+ *  op: the current instruction being reallocated.
+ *  vir_reg: the virtual register we wish to assign a physical register to.
+ *  phys_reg: the physcial register being freed / reallocated. At the time it's called, it is occupied.
+ */
+int spill(struct Instruction* op, int vir_reg, int phys_reg) {
+    // Get the next memory value
+    int memval;
+    if (VRtoSpillLoc[PRtoVR[phys_reg]] == -1) {
+        memval = next_spill_loc;
+        next_spill_loc += 4;
+    } else {
+        memval = VRtoSpillLoc[PRtoVR[phys_reg]];
+    }
+    
+
+    // Do a general-purpose spill: insert LOADI and STORE.
+    struct Instruction *loadIInstr = malloc(sizeof(struct Instruction));
+    struct Instruction *storeInstr = malloc(sizeof(struct Instruction));
+
+    loadIInstr->opcode = LOADIL;
+    loadIInstr->vr1 = memval;
+    loadIInstr->pr1 = memval;
+    loadIInstr->pr3 = prcount - 1;
+
+    storeInstr->opcode = STORE;
+    storeInstr->vr1 = PRtoVR[phys_reg];
+    storeInstr->pr1 = phys_reg;
+    storeInstr->pr3 = prcount - 1;
+
+    if (insert_instr_after(loadIInstr, op->prev) != 0) {
+        printf("Error with IR insertion in spill (LOADI). Uh oh.\n");
+    }
+
+    if (insert_instr_after(storeInstr, op->prev) != 0) {
+        printf("Error with IR insertion in spill (STORE). Uh oh.\n");
+    } 
+
+    VRtoSpillLoc[vir_reg] = memval;
+    
+    // I believe these updates are necessary based on the textbook—but
+    // it's possible that these are already taken care of immediately following the spill
+    // function, no?
+    // These might need work, but you can think it through. Not now though.
+    VRtoPR[PRtoVR[phys_reg]] = -1;
+    PRtoVR[phys_reg] = -1;
+    PRNU[phys_reg] = -1;
+
+}
+
+int restore(struct Instruction* op, int vir_reg, int phys_reg) {
+    
+    // Do a general-purpose restore: insert LOADI and LOAD.
+    struct Instruction *loadIInstr = malloc(sizeof(struct Instruction));
+    struct Instruction *loadInstr = malloc(sizeof(struct Instruction));
+
+    int memval = VRtoSpillLoc[vir_reg];
+
+    loadIInstr->opcode = LOADIL;
+    loadIInstr->vr1 = memval;
+    loadIInstr->pr1 = memval;
+    loadIInstr->pr3 = prcount - 1;
+
+    loadInstr->opcode = LOAD;
+    loadInstr->pr1 = prcount - 1;
+    loadInstr->pr3 = phys_reg;
+
+    if (insert_instr_after(loadIInstr, op->prev) != 0) {
+        printf("Error with IR insertion in restore (LOADI). Uh oh.\n");
+    }
+
+    if (insert_instr_after(loadInstr, op->prev) != 0) {
+        printf("Error with IR insertion in restore (LOAD). Uh oh.\n");
+    } 
+
+    // I believe these updates are necessary based on the textbook—but
+    // it's possible that these are already taken care of immediately following the restore
+    VRtoPR[vir_reg] = phys_reg;
+    PRtoVR[phys_reg] = vir_reg;
+
+    // Actually, I don't know exactly what this should be. Awesome.
+    //PRNU[phys_reg] = ;
+
+}
+
+// Helper function for reallocation pass on an operation with three operands.
+void allocHandleThree(struct Instruction *op) {
+    /* Used operand 1 */
+    if (VRtoPR[op->sr1] == -1) {
+        op->pr1 = getPR(op->vr1, op->nu1);
+        restore(op->vr1, op->pr1);
+    } else {
+        op->pr1 = VRtoPR[op->sr1];
+    }
+    // Set the mark.
+    PRmarker[op->pr1] = 1;
+
+    /* Used operatnd 2 */
+    if (VRtoPR[op->sr2] == -1) {
+        op->pr2 = getPR(op->vr2, op->nu2);
+        restore(op->vr2, op->pr2);
+    } else {
+        op->pr2 = VRtoPR[op->sr2];
+    }
+    // Set the mark.
+    PRmarker[op->pr2] = 1;
+
+
+    /* Free used operands if last use */
+    if (op->nu1 == -1 && PRtoVR[op->pr1] != -1) {
+        freepr(op->pr1);
+    } else if (op->nu2 == -1 && PRtoVR[op->pr2] != -1) {
+        freepr(op->pr2);
+    }
+
+    /* Clear marks in each PR */
+    clearMarks();
+
+    /* Allocate defs! */
+    op->pr3 = getpr(op, op->vr3, op->nu3);
+    // Set the mark for pr3, or something. I don't like how they use "in", though...
+    PRmarker[op->pr3] = 1;
+}
+
+/* HELPER FUNCTIONS FOR RENAMING */
 
 int handleThree(struct Instruction *currOp, int VRName, int index)
 {
@@ -313,4 +568,30 @@ void print_renamed_code(struct Instruction *ir)
         }
         curr = curr->next;
     }
+}
+
+
+/* Stack operations. I'll be pissed if what I messed up was here. */
+
+// Helper to push a new number onto the top of an array-based stack.
+void push(int pr) {
+
+    if (stacktop >= prcount) {
+        printf("stacktop >= prcount. That's bad.\n");
+        return;
+    }
+
+    prstack[stacktop] = pr;
+    stacktop++;
+}
+
+int pop() {
+
+    if (stacktop <= 0) {
+        printf("stacktop <= 0. You probably shouldn't have called pop.\n");
+        return(-1);
+    }
+
+    stacktop--;
+    return prstack[stacktop];
 }
