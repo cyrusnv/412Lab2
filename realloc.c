@@ -26,6 +26,11 @@ void allocHandleLoadI(struct Instruction *op);
 void allocHandleLoad(struct Instruction *op);
 void allocHandleStore(struct Instruction *op);
 
+// Debugging functions
+void printstack();
+void printVRtoPR();
+void printPRtoVR();
+void checkTables();
 
 // Global Maps
 int *SRtoVR = NULL;
@@ -50,6 +55,7 @@ int *prstack = NULL;
 int stacktop = 0;
 // Address for where the next value will be spilled to, if necessary.
 int next_spill_loc = 32768;
+struct Instruction *startir;
 
 int main(int argc, char **argv)
 {
@@ -61,8 +67,9 @@ int main(int argc, char **argv)
         printf("    k is the number of registers to use (3-64)\n");
         return 0;
     }
-    else if (argc > 1 && strcmp(argv[1], "-x") != 0)
+    else if (argc > 1 && strcmp(argv[1], "-x") == 0)
     {
+        printf("Code Check 1:\n");
         // Check arguments
         if (argc != 3)
         {
@@ -72,6 +79,7 @@ int main(int argc, char **argv)
     } else if (argc > 1) {
 
         // Parse k value
+        printf("Code Check 2:\n");
         prcount = atoi(argv[1]);
         if (prcount < 3 || prcount > 64)
         {
@@ -83,6 +91,7 @@ int main(int argc, char **argv)
     // Build IR using your Lab 1 code
     // Cyrus you'll need to check to make sure the file is valid here...
     struct Instruction *ir = buildIR(argv[2]);
+    startir = ir;
     if (ir == NULL)
     {
         return 1; // Error already printed by buildIR
@@ -90,6 +99,13 @@ int main(int argc, char **argv)
 
     // Perform register renaming
     rename_registers(ir);
+
+    // Post-rename print:
+    /*
+    printf("POST-RENAME PRINT:\n\n\n");
+    print_renamed_code(ir);
+    printf("\n\n");
+    */
 
     // Perform register allocation.
     reallocate_registers(ir);
@@ -183,10 +199,18 @@ void reallocate_registers(struct Instruction *ir) {
         usableprcount = prcount;
     }
 
+    // HARD-CODED: REMOVE THIS!
+
+
+    usableprcount = 3;
+
+
+    // GET RID OF THAT!!!
+
     // Initialize PRtoVR, PRNU
     PRtoVR = malloc(usableprcount * sizeof(int));
     PRNU = malloc(usableprcount * sizeof(int));
-    for (int i = 0; i < usableprcount; i++) {
+    for (int i = usableprcount - 1; i >= 0; i--) {
         PRtoVR[i] = -1;
         PRNU[i] = -1;
         push(i);
@@ -195,10 +219,20 @@ void reallocate_registers(struct Instruction *ir) {
     // Initialize your marking list
     PRmarker = malloc(usableprcount *sizeof(int));
 
+    /* TESTING: make sure everything is initialized right! */
+    /*
+    printPRtoVR();
+    printVRtoPR();
+    printstack();
+    printf("MAXLIVE: %d\n", maxlive);
+    printf("usableprcount: %d\n", usableprcount);
+    */
+
     // Now the fun stuff: you gotta iterate over the block
     struct Instruction *op = ir->next;
     while (op->line != -1) {
         // clear the mark in each PR
+        printf("\n\nline: %d\n", op->line);
         clearMarks();
 
         int currCode = op->opcode;
@@ -222,6 +256,12 @@ void reallocate_registers(struct Instruction *ir) {
         {
             allocHandleLoadI(op);
         }
+
+        op = op->next;
+        checkTables();
+        printIR2(startir);
+        printPRtoVR();
+        printVRtoPR();
     }
 }
 
@@ -240,6 +280,7 @@ int getPR(struct Instruction* op, int vir_reg, int next_use) {
     // If the PR is free... (you should have a stack)
     int pr;
     if (stacktop > 0) {
+        //printf("No spill this time!\n");
         pr = pop();
     } else {
         pr = pickPRtospill();
@@ -250,6 +291,10 @@ int getPR(struct Instruction* op, int vir_reg, int next_use) {
     VRtoPR[vir_reg] = pr;
     PRtoVR[pr] = vir_reg;
     PRNU[pr] = next_use;
+
+    printf("getPR:\n");
+    printf("    VRtoPR[%d] = %d;\n", vir_reg, pr);
+    printf("    PRtoVR[%d] = %d;\n", pr, vir_reg);
 
     return(pr);
 }
@@ -385,21 +430,21 @@ int restore(struct Instruction* op, int vir_reg, int phys_reg) {
 // Helper function for reallocation pass on an operation with three operands.
 void allocHandleThree(struct Instruction *op) {
     /* Used operand 1 */
-    if (VRtoPR[op->sr1] == -1) {
+    if (VRtoPR[op->vr1] == -1) {
         op->pr1 = getPR(op, op->vr1, op->nu1);
         restore(op, op->vr1, op->pr1);
     } else {
-        op->pr1 = VRtoPR[op->sr1];
+        op->pr1 = VRtoPR[op->vr1];
     }
     // Set the mark.
     PRmarker[op->pr1] = 1;
 
     /* Used operatnd 2 */
-    if (VRtoPR[op->sr2] == -1) {
+    if (VRtoPR[op->vr2] == -1) {
         op->pr2 = getPR(op, op->vr2, op->nu2);
         restore(op, op->vr2, op->pr2);
     } else {
-        op->pr2 = VRtoPR[op->sr2];
+        op->pr2 = VRtoPR[op->vr2];
     }
     // Set the mark.
     PRmarker[op->pr2] = 1;
@@ -431,13 +476,14 @@ void allocHandleThree(struct Instruction *op) {
  *  - None. You're getting nothing out of this guy—it just does it's job.
  */
 void allocHandleLoadI(struct Instruction *op) {
-    
+    //printf("We're at the right instruction! LoadI\n");
     /* Clear marks in each PR */
     // I don't think I need this, but I don't think it hurts.
     clearMarks();
 
     /* Allocate defs! */
     op->pr3 = getPR(op, op->vr3, op->nu3);
+    printf("The PR retrieved: %d\n", op->pr3);
     // Set the mark for pr3
     PRmarker[op->pr3] = 1;
 }
@@ -453,11 +499,11 @@ void allocHandleLoadI(struct Instruction *op) {
  */
 void allocHandleLoad(struct Instruction *op) {
     /* Used operand 1 */
-    if (VRtoPR[op->sr1] == -1) {
+    if (VRtoPR[op->vr1] == -1) {
         op->pr1 = getPR(op, op->vr1, op->nu1);
         restore(op, op->vr1, op->pr1);
     } else {
-        op->pr1 = VRtoPR[op->sr1];
+        op->pr1 = VRtoPR[op->vr1];
     }
     // Set the mark.
     PRmarker[op->pr1] = 1;
@@ -487,21 +533,21 @@ void allocHandleLoad(struct Instruction *op) {
  */
 void allocHandleStore(struct Instruction *op) {
     /* Used operand 1 */
-    if (VRtoPR[op->sr1] == -1) {
+    if (VRtoPR[op->vr1] == -1) {
         op->pr1 = getPR(op, op->vr1, op->nu1);
         restore(op, op->vr1, op->pr1);
     } else {
-        op->pr1 = VRtoPR[op->sr1];
+        op->pr1 = VRtoPR[op->vr1];
     }
     // Set the mark.
     PRmarker[op->pr1] = 1;
 
     /* Used operand 2 */
-    if (VRtoPR[op->sr2] == -1) {
+    if (VRtoPR[op->vr2] == -1) {
         op->pr2 = getPR(op, op->vr2, op->nu2);
         restore(op, op->vr2, op->pr2);
     } else {
-        op->pr2 = VRtoPR[op->sr2];
+        op->pr2 = VRtoPR[op->vr2];
     }
     // Set the mark.
     PRmarker[op->pr2] = 1;
@@ -652,7 +698,6 @@ int handleLoadI(struct Instruction *currOp, int VRName)
 void print_renamed_code(struct Instruction *ir)
 {
     struct Instruction *curr = ir->next; // Skip dummy head
-
     while (curr->line != -1)
     { // Until we hit end sentinel
         switch (curr->opcode)
@@ -721,7 +766,7 @@ void push(int pr) {
     }
 
     prstack[stacktop] = pr;
-    stacktop++;
+    stacktop += 1;
 }
 
 int pop() {
@@ -733,4 +778,47 @@ int pop() {
 
     stacktop--;
     return prstack[stacktop];
+}
+
+/* Debugging functions */
+
+void printPRtoVR() {
+    printf("PRtoVR print:\n");
+    for (int i = 0; i < usableprcount; i++) {
+        printf("    pr%d: vr%d\n", i, PRtoVR[i]);
+    }
+}
+
+void printVRtoPR() {
+    printf("VRtoPR print:\n");
+    for (int i = 0; i < (opcount * 3); i++) {
+        printf("    vr%d: pr%d\n", i, VRtoPR[i]);
+    }
+}
+
+void printstack() {
+    for (int i = 0; i < usableprcount; i++) {
+        printf("stack %d: %d\n", prstack[i], stacktop);
+    }
+}
+
+void checkTables() {
+    for (int i = 0; i < usableprcount; i++) {
+        if (PRtoVR[i] != PRtoVR[VRtoPR[PRtoVR[i]]] && PRtoVR[i] != -1) {
+            printf("YOUR TABLES ARE MESSED UP!\n");
+            printf("PRtoVR[%d]: %d\n", i, PRtoVR[i]);
+            printf("VRtoPR[PRtoVR[%d]]: %d\n", i, VRtoPR[PRtoVR[i]]);
+            print_renamed_code(startir);
+            exit(0);
+        }
+    }
+    for (int i = 0; i < (opcount * 3); i++) {
+        if (VRtoPR[i] != VRtoPR[PRtoVR[VRtoPR[i]]] && VRtoPR[i] != -1) {
+            printf("YOUR TABLES ARE MESSED UP!\n");
+            printf("PRtoVR[%d]: %d\n", i, PRtoVR[i]);
+            printf("VRtoPR[PRtoVR[%d]]: %d\n", i, VRtoPR[PRtoVR[i]]);
+            print_renamed_code(startir);
+            exit(0);
+        }
+    }
 }

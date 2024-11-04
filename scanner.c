@@ -1140,21 +1140,21 @@ void printIR2(struct Instruction* ir)
 
           printf("LINE: %d\n", currInstr->line);
           printf("  opcode: %s\n", cat_lex_list[currInstr->opcode]);
-          printf("  arg1:\n");
-          printf("       sr1: %d\n", currInstr->sr1);
-          printf("       vr1: %d\n", currInstr->vr1);
-          printf("       pr1: %d\n", currInstr->pr1);
+          printf("  arg1:");
+          printf("       sr1: %d ", currInstr->sr1);
+          printf("       vr1: %d ", currInstr->vr1);
+          printf("       pr1: %d ", currInstr->pr1);
           printf("       nu1: %d\n", currInstr->nu1);
-          printf("  arg2:\n");
-          printf("       sr2: %d\n", currInstr->sr2);
-          printf("       vr2: %d\n", currInstr->vr2);
-          printf("       pr2: %d\n", currInstr->pr2);
+          printf("  arg2:");
+          printf("       sr2: %d ", currInstr->sr2);
+          printf("       vr2: %d ", currInstr->vr2);
+          printf("       pr2: %d ", currInstr->pr2);
           printf("       nu2: %d\n", currInstr->nu2);
-          printf("  arg3:\n");
-          printf("       sr3: %d\n", currInstr->sr3);
-          printf("       vr3: %d\n", currInstr->vr3);
-          printf("       pr3: %d\n", currInstr->pr3);
-          printf("       nu3: %d\n", currInstr->nu3);
+          printf("  arg3:");
+          printf("       sr3: %d ", currInstr->sr3);
+          printf("       vr3: %d ", currInstr->vr3);
+          printf("       pr3: %d ", currInstr->pr3);
+          printf("       nu3: %d ", currInstr->nu3);
           printf("\n");
 
           currInstr = currInstr->next;
