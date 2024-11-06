@@ -10,7 +10,6 @@ int handleThree(struct Instruction *currOp, int VRName, int index);
 int handleStore(struct Instruction *currOp, int VRName, int index);
 int handleLoad(struct Instruction *currOp, int VRName, int index);
 int handleLoadI(struct Instruction *currOp, int VRName);
-void print_renamed_code(struct Instruction *ir);
 void reallocate_registers(struct Instruction *ir);
 void push(int pr);
 int pop();
@@ -31,6 +30,9 @@ void printstack();
 void printVRtoPR();
 void printPRtoVR();
 void checkTables();
+void print_renamed_code_vr(struct Instruction *ir);
+void print_renamed_code_pr(struct Instruction *ir);
+
 
 // Global Maps
 int *SRtoVR = NULL;
@@ -114,7 +116,7 @@ int main(int argc, char **argv)
     printIR2(ir);
 
     // Print the renamed code
-    print_renamed_code(ir);
+    print_renamed_code_pr(ir);
 
     // Print the transformed code
     // print_allocated_code(ir);
@@ -435,6 +437,8 @@ void allocHandleThree(struct Instruction *op) {
         restore(op, op->vr1, op->pr1);
     } else {
         op->pr1 = VRtoPR[op->vr1];
+        // This next line isn't in the algorithm... everyone pray!
+        PRNU[op->pr1] = op->nu1;
     }
     // Set the mark.
     PRmarker[op->pr1] = 1;
@@ -445,6 +449,8 @@ void allocHandleThree(struct Instruction *op) {
         restore(op, op->vr2, op->pr2);
     } else {
         op->pr2 = VRtoPR[op->vr2];
+        // This next line isn't in the algorithm... everyone pray!
+        PRNU[op->pr2] = op->nu2;
     }
     // Set the mark.
     PRmarker[op->pr2] = 1;
@@ -453,7 +459,8 @@ void allocHandleThree(struct Instruction *op) {
     /* Free used operands if last use */
     if (op->nu1 == -1 && PRtoVR[op->pr1] != -1) {
         freepr(op->pr1);
-    } else if (op->nu2 == -1 && PRtoVR[op->pr2] != -1) {
+    } 
+    if (op->nu2 == -1 && PRtoVR[op->pr2] != -1) {
         freepr(op->pr2);
     }
 
@@ -504,6 +511,8 @@ void allocHandleLoad(struct Instruction *op) {
         restore(op, op->vr1, op->pr1);
     } else {
         op->pr1 = VRtoPR[op->vr1];
+        // This next line isn't in the algorithm... everyone pray!
+        PRNU[op->pr1] = op->nu1;
     }
     // Set the mark.
     PRmarker[op->pr1] = 1;
@@ -538,26 +547,31 @@ void allocHandleStore(struct Instruction *op) {
         restore(op, op->vr1, op->pr1);
     } else {
         op->pr1 = VRtoPR[op->vr1];
+        // This next line isn't in the algorithm... everyone pray!
+        PRNU[op->pr1] = op->nu1;
     }
     // Set the mark.
     PRmarker[op->pr1] = 1;
 
     /* Used operand 2 */
-    if (VRtoPR[op->vr2] == -1) {
-        op->pr2 = getPR(op, op->vr2, op->nu2);
-        restore(op, op->vr2, op->pr2);
+    if (VRtoPR[op->vr3] == -1) {
+        op->pr3 = getPR(op, op->vr3, op->nu3);
+        restore(op, op->vr3, op->pr3);
     } else {
-        op->pr2 = VRtoPR[op->vr2];
+        op->pr3 = VRtoPR[op->vr3];
+        // This next line isn't in the algorithm... everyone pray!
+        PRNU[op->pr3] = op->nu3;
     }
     // Set the mark.
-    PRmarker[op->pr2] = 1;
+    PRmarker[op->pr3] = 1;
 
 
     /* Free used operands if last use */
     if (op->nu1 == -1 && PRtoVR[op->pr1] != -1) {
         freepr(op->pr1);
-    } else if (op->nu2 == -1 && PRtoVR[op->pr2] != -1) {
-        freepr(op->pr2);
+    } 
+    if (op->nu3 == -1 && PRtoVR[op->pr3] != -1) {
+        freepr(op->pr3);
     }
 
     /* Clear marks in each PR */
@@ -695,7 +709,54 @@ int handleLoadI(struct Instruction *currOp, int VRName)
     return VRName;
 }
 
-void print_renamed_code(struct Instruction *ir)
+/* Stack operations. I'll be pissed if what I messed up was here. */
+
+// Helper to push a new number onto the top of an array-based stack.
+void push(int pr) {
+
+    if (stacktop >= prcount) {
+        printf("stacktop >= prcount. That's bad.\n");
+        return;
+    }
+
+    prstack[stacktop] = pr;
+    stacktop += 1;
+}
+
+int pop() {
+
+    if (stacktop <= 0) {
+        printf("stacktop <= 0. You probably shouldn't have called pop.\n");
+        return(-1);
+    }
+
+    stacktop--;
+    return prstack[stacktop];
+}
+
+/* Debugging functions */
+
+void printPRtoVR() {
+    printf("PRtoVR print:\n");
+    for (int i = 0; i < usableprcount; i++) {
+        printf("    pr%d: vr%d\n", i, PRtoVR[i]);
+    }
+}
+
+void printVRtoPR() {
+    printf("VRtoPR print:\n");
+    for (int i = 0; i < (opcount * 3); i++) {
+        printf("    vr%d: pr%d\n", i, VRtoPR[i]);
+    }
+}
+
+void printstack() {
+    for (int i = 0; i < usableprcount; i++) {
+        printf("stack %d: %d\n", prstack[i], stacktop);
+    }
+}
+
+void print_renamed_code_vr(struct Instruction *ir)
 {
     struct Instruction *curr = ir->next; // Skip dummy head
     while (curr->line != -1)
@@ -754,51 +815,62 @@ void print_renamed_code(struct Instruction *ir)
     }
 }
 
+void print_renamed_code_pr(struct Instruction *ir)
+{
+    struct Instruction *curr = ir->next; // Skip dummy head
+    while (curr->line != -1)
+    { // Until we hit end sentinel
+        switch (curr->opcode)
+        {
+        case LOAD:
+            printf("load r%d => r%d\n",
+                   curr->pr1, curr->pr3);
+            break;
 
-/* Stack operations. I'll be pissed if what I messed up was here. */
+        case STORE:
+            printf("store r%d => r%d\n",
+                   curr->pr1, curr->pr3);
+            break;
 
-// Helper to push a new number onto the top of an array-based stack.
-void push(int pr) {
+        case LOADIL:
+            printf("loadI %d => r%d\n",
+                   curr->sr1, curr->pr3);
+            break;
 
-    if (stacktop >= prcount) {
-        printf("stacktop >= prcount. That's bad.\n");
-        return;
-    }
+        case ADD:
+            printf("add r%d, r%d => r%d\n",
+                   curr->pr1, curr->pr2, curr->pr3);
+            break;
 
-    prstack[stacktop] = pr;
-    stacktop += 1;
-}
+        case SUB:
+            printf("sub r%d, r%d => r%d\n",
+                   curr->pr1, curr->pr2, curr->pr3);
+            break;
 
-int pop() {
+        case MULT:
+            printf("mult r%d, r%d => r%d\n",
+                   curr->pr1, curr->pr2, curr->pr3);
+            break;
 
-    if (stacktop <= 0) {
-        printf("stacktop <= 0. You probably shouldn't have called pop.\n");
-        return(-1);
-    }
+        case LSHIFT:
+            printf("lshift r%d, r%d => r%d\n",
+                   curr->pr1, curr->pr2, curr->pr3);
+            break;
 
-    stacktop--;
-    return prstack[stacktop];
-}
+        case RSHIFT:
+            printf("rshift r%d, r%d => r%d\n",
+                   curr->pr1, curr->pr2, curr->pr3);
+            break;
 
-/* Debugging functions */
+        case OUTPUTL:
+            printf("output %d\n", curr->sr1);
+            break;
 
-void printPRtoVR() {
-    printf("PRtoVR print:\n");
-    for (int i = 0; i < usableprcount; i++) {
-        printf("    pr%d: vr%d\n", i, PRtoVR[i]);
-    }
-}
-
-void printVRtoPR() {
-    printf("VRtoPR print:\n");
-    for (int i = 0; i < (opcount * 3); i++) {
-        printf("    vr%d: pr%d\n", i, VRtoPR[i]);
-    }
-}
-
-void printstack() {
-    for (int i = 0; i < usableprcount; i++) {
-        printf("stack %d: %d\n", prstack[i], stacktop);
+        case NOPL:
+            printf("nop\n");
+            break;
+        }
+        curr = curr->next;
     }
 }
 
@@ -808,7 +880,7 @@ void checkTables() {
             printf("YOUR TABLES ARE MESSED UP!\n");
             printf("PRtoVR[%d]: %d\n", i, PRtoVR[i]);
             printf("VRtoPR[PRtoVR[%d]]: %d\n", i, VRtoPR[PRtoVR[i]]);
-            print_renamed_code(startir);
+            print_renamed_code_pr(startir);
             exit(0);
         }
     }
@@ -817,7 +889,7 @@ void checkTables() {
             printf("YOUR TABLES ARE MESSED UP!\n");
             printf("PRtoVR[%d]: %d\n", i, PRtoVR[i]);
             printf("VRtoPR[PRtoVR[%d]]: %d\n", i, VRtoPR[PRtoVR[i]]);
-            print_renamed_code(startir);
+            print_renamed_code_pr(startir);
             exit(0);
         }
     }
