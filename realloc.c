@@ -33,6 +33,7 @@ void checkTables();
 void print_renamed_code_vr(struct Instruction *ir);
 void print_renamed_code_pr(struct Instruction *ir);
 
+// I tried a ton of stuff and none of it worked.
 
 // Global Maps
 int *SRtoVR = NULL;
