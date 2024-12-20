@@ -834,8 +834,14 @@ void print_renamed_code_pr(struct Instruction *ir)
             break;
 
         case LOADIL:
-            printf("loadI %d => r%d\n",
+            if (curr->sr1 == 0 && curr->vr1 > 30000) {
+                printf("loadI %d => r%d\n",
+                   curr->vr1, curr->pr3);
+            } else {
+                printf("loadI %d => r%d\n",
                    curr->sr1, curr->pr3);
+            }
+            
             break;
 
         case ADD:
