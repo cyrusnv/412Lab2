@@ -205,7 +205,7 @@ void reallocate_registers(struct Instruction *ir) {
     // HARD-CODED: REMOVE THIS!
 
 
-    usableprcount = 3;
+    //usableprcount = 3;
 
 
     // GET RID OF THAT!!!
