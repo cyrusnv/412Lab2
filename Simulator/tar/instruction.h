@@ -68,9 +68,9 @@ typedef struct label_array {
     struct label_array* next;
 } Label_Array;
 
-Label** hash_labels;
-int number_of_labels;
-Label_Array* label_list;
+extern Label** hash_labels;
+extern int number_of_labels;
+extern Label_Array* label_list;
 
 
 /* The Hashnode structure is used to create hash tables */
@@ -79,7 +79,7 @@ typedef struct hashnode {
     struct hashnode* next;
 } Hashnode;
 
-Hashnode** hash_opcodes;
+extern Hashnode** hash_opcodes;
 
 /* Run yyparse and return a pointer to the first instruction if no
    errors occur, otherwise return NULL */

@@ -476,7 +476,7 @@ char *yytext;
   int line_counter = 1;
   Opcode* current_opcode;
 
-  char token[256];
+  extern char token[256];
 
 #line 481 "lex.yy.c"
 #line 482 "lex.yy.c"

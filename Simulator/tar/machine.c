@@ -9,9 +9,15 @@
 #include <stdio.h>
 #include "machine.h"
 
-int code_check;
-int code_check_flag;
-int cycle_count;
+extern int code_check;
+extern int code_check_flag;
+extern int cycle_count;
+
+/* CODE I WROTE PLEASE DON'T BREAK: */
+int MEMORY_SIZE;
+int NUM_REGISTERS;
+int* register_bank;
+char* memory_bank;
 
 /* Initialize arrays used in the machine during the simulation */
 void initialize_machine(int reg_size, int mem_size)

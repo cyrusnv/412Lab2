@@ -120,7 +120,11 @@ extern Instruction* first_instruction;
 extern int error_found;
 int yyparse();
 
-
+/* Add at file scope: */
+Label** hash_labels;
+int number_of_labels;
+Label_Array* label_list;
+Hashnode** hash_opcodes;
 
 /* Run yyparse and return a pointer to the first instruction if no
    errors occur, otherwise return NULL */

@@ -10,17 +10,17 @@
 
 /* The default number of bytes of addressable memory starting from 0 */
 #define DEFAULT_MEMORY_SIZE 4000000
-int MEMORY_SIZE;
+extern int MEMORY_SIZE;
 
 /* The default number of registers */
 #define DEFAULT_NUM_REGISTERS 1000000
-int NUM_REGISTERS;
+extern int NUM_REGISTERS;
 
 /* Array of registers */
-int* register_bank;
+extern int* register_bank;
 
 /* A character array that represents main memory */
-char* memory_bank;
+extern char* memory_bank;
 
 /* Initialize arrays used in the machine representation during the 
    simulation */

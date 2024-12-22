@@ -18,7 +18,7 @@ NUM [0-9]+
   int line_counter = 1;
   Opcode* current_opcode;
 
-  char token[256];
+  extern char token[256];
 
 %}
 
