@@ -128,7 +128,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-// Function to perform register allocation
+// Function to perform register renaming
 void rename_registers(struct Instruction *ir)
 {
 
@@ -322,9 +322,9 @@ int freepr(int pr) {
 // Helper function that performs the search for a a PR to spill.
 int pickPRtospill() {
     int currPR = -1;
-    int currNU = -1;
-    for (int i = 0; i < prcount; i++) {
-        if (PRNU[i] > currNU) {
+    int currNU = -2;
+    for (int i = 0; i < usableprcount - 1; i++) {
+        if (PRNU[i] > currNU && PRmarker[i] == 0) {
             currPR = i;
             currNU = PRNU[i];
         }

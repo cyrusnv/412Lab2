@@ -11,7 +11,7 @@ OBJECTS = $(SOURCES:.c=.o)
 HEADERS = ir.h
 
 # Files to include in tar
-FILES = $(SOURCES) $(HEADERS) Makefile README
+FILES = $(SOURCES) $(HEADERS) makefile README.md
 
 all: build
 
