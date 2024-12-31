@@ -319,11 +319,11 @@ int freepr(int pr) {
 }
 
 
-// Helper function that performs the search for a a PR to spill.
+// Helper function that performs the search for a a PR to spill.                  
 int pickPRtospill() {
     int currPR = -1;
     int currNU = -2;
-    for (int i = 0; i < usableprcount - 1; i++) {
+    for (int i = 0; i < usableprcount; i++) {
         if (PRNU[i] > currNU && PRmarker[i] == 0) {
             currPR = i;
             currNU = PRNU[i];
