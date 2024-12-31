@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     } else if (argc > 1) {
 
         // Parse k value
-        printf("Code Check 2:\n");
+        //printf("Code Check 2:\n");
         prcount = atoi(argv[1]);
         if (prcount < 3 || prcount > 64)
         {
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     reallocate_registers(ir);
 
     // Print out the new IR!
-    printIR2(ir);
+    // printIR2(ir);
 
     // Print the renamed code
     print_renamed_code_pr(ir);
@@ -235,7 +235,7 @@ void reallocate_registers(struct Instruction *ir) {
     struct Instruction *op = ir->next;
     while (op->line != -1) {
         // clear the mark in each PR
-        printf("\n\nline: %d\n", op->line);
+        //printf("\n\nline: %d\n", op->line);
         clearMarks();
 
         int currCode = op->opcode;
@@ -262,9 +262,9 @@ void reallocate_registers(struct Instruction *ir) {
 
         op = op->next;
         checkTables();
-        printIR2(startir);
-        printPRtoVR();
-        printVRtoPR();
+        //printIR2(startir);
+        //printPRtoVR();
+        //printVRtoPR();
     }
 }
 
@@ -295,9 +295,9 @@ int getPR(struct Instruction* op, int vir_reg, int next_use) {
     PRtoVR[pr] = vir_reg;
     PRNU[pr] = next_use;
 
-    printf("getPR:\n");
-    printf("    VRtoPR[%d] = %d;\n", vir_reg, pr);
-    printf("    PRtoVR[%d] = %d;\n", pr, vir_reg);
+    //printf("getPR:\n");
+    //printf("    VRtoPR[%d] = %d;\n", vir_reg, pr);
+    //printf("    PRtoVR[%d] = %d;\n", pr, vir_reg);
 
     return(pr);
 }
@@ -491,7 +491,7 @@ void allocHandleLoadI(struct Instruction *op) {
 
     /* Allocate defs! */
     op->pr3 = getPR(op, op->vr3, op->nu3);
-    printf("The PR retrieved: %d\n", op->pr3);
+    //printf("The PR retrieved: %d\n", op->pr3);
     // Set the mark for pr3
     PRmarker[op->pr3] = 1;
 }
