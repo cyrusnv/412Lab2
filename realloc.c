@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     }
     else if (argc > 1 && strcmp(argv[1], "-x") == 0)
     {
-        printf("Code Check 1:\n");
+        //printf("Code Check 1:\n");
         // Check arguments
         if (argc != 3)
         {
@@ -113,7 +113,6 @@ int main(int argc, char **argv)
         return(1);
     }
     
-
     // Perform register allocation.
     reallocate_registers(ir);
 
