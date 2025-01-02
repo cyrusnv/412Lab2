@@ -135,7 +135,8 @@ void rename_registers(struct Instruction *ir)
     // Your counter for VRnames
     int VRName = 0;
     // Set up your renaming maps...
-    int mapsize = opcount * 3;
+    //int mapsize = opcount * 3;
+    int mapsize = (maxregister + 1) * 3;
     SRtoVR = malloc(mapsize * sizeof(int));
     LU = malloc(mapsize * sizeof(int));
     for (int i = 0; i < mapsize; i++)
@@ -147,8 +148,11 @@ void rename_registers(struct Instruction *ir)
     // Main loop over the operations, bottom to top
     struct Instruction *currOp = ir->prev->prev;
     int index = (currOp->line) - 1;
+    //int iterator = 0;
     while (currOp->line != 0)
     {
+        //printf("iterator: %d\n", iterator);
+        //iterator++;
         int currCode = currOp->opcode;
         // printf("line: %d\n", currOp->line);
         // printf("currCode: %d\n\n", currCode);
@@ -261,7 +265,7 @@ void reallocate_registers(struct Instruction *ir) {
         }
 
         op = op->next;
-        checkTables();
+        //checkTables();
         //printIR2(startir);
         //printPRtoVR();
         //printVRtoPR();

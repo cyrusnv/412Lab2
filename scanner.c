@@ -56,6 +56,7 @@ int fileline = 0;
 bool at_EOF = false;
 bool hadError = false;
 int opcount = 0;
+int maxregister = 0;
 bool h_flag = 0;
 bool r_flag = 0;
 bool p_flag = 0;
@@ -330,6 +331,9 @@ void gettoken(int tokarray[])
                }
                tokarray[0] = REGISTER;
                tokarray[1] = n;
+               if (n > maxregister) {
+                    maxregister = n;
+               }
           }
      }
      else if (*c == 'm')

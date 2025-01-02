@@ -45,6 +45,7 @@ struct Instruction {
 
 //Global Variables
 extern int opcount;
+extern int maxregister;
 extern char cat_lex_list[25][10];
 
 // Main functions for Lab 2 to use
