@@ -67,7 +67,9 @@ int main(int argc, char **argv)
     {
         printf("Command Syntax:\n");
         printf("    ./412alloc k filename\n");
-        printf("    k is the number of registers to use (3-64)\n");
+        printf("        k is the number of registers to use (3-64)\n");
+        printf("    ./412alloc -h\n");
+        printf("        Displays this help message\n");
         return 0;
     }
     else if (argc > 1 && strcmp(argv[1], "-x") == 0)
@@ -103,12 +105,14 @@ int main(int argc, char **argv)
     // Perform register renaming
     rename_registers(ir);
 
-    // Post-rename print:
-    /*
-    printf("POST-RENAME PRINT:\n\n\n");
-    print_renamed_code(ir);
-    printf("\n\n");
-    */
+    if (argc > 1 && strcmp(argv[1], "-x") == 0) {
+        // Post-rename print:
+        //printf("POST-RENAME PRINT:\n\n\n");
+        print_renamed_code_vr(ir);
+        //printf("\n\n");
+        return(1);
+    }
+    
 
     // Perform register allocation.
     reallocate_registers(ir);
