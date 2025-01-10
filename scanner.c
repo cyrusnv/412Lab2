@@ -1079,6 +1079,8 @@ void finish_nop(int lexeme)
           // printf("line: %d\n", i_start->line);
           if (!hadError)
           {
+               // REVERT IF THIS BREAKS STUFF
+               /*
                struct Instruction *newinstr;
                newinstr = bcmalloc();
                insert_instr_after(newinstr, i_end->prev);
@@ -1088,8 +1090,13 @@ void finish_nop(int lexeme)
                newinstr->line = fileline - 1;
                // OPCODE AH SHIT
                newinstr->opcode = lexeme;
+               */
           }
-          opcount++;
+
+          //REVERT IF THIS BREAKS STUFF
+          //opcount++;
+
+
           // newinstr->sr1 = constant[1];
 
           // printf("**DOUBLE CHECKING NEWINSTR**\n");

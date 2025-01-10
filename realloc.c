@@ -28,7 +28,7 @@ void allocHandleStore(struct Instruction *op);
 void printstack();
 void printVRtoPR();
 void printPRtoVR();
-void checkTables();
+void checkTables(int line);
 void print_renamed_code_vr(struct Instruction *ir);
 void print_renamed_code_pr(struct Instruction *ir);
 
@@ -44,6 +44,10 @@ int *PRtoVR = NULL;
 int *PRNU = NULL;
 
 int *PRmarker = NULL;
+
+/* REMATERIALIZABLE */
+int *VRRematerializable = NULL;
+int *VRValues = NULL;
 
 /* Global Variables */
 // Keep track of the # of PRs available and MAXLIVE accounting.
@@ -121,7 +125,7 @@ int main(int argc, char **argv)
     // Print out the new IR!
     // printIR2(ir);
 
-    // Print the renamed code
+    // Print the renamed code (this is the final output, hopefully.)
     print_renamed_code_pr(ir);
 
     // Print the transformed code
@@ -137,6 +141,10 @@ int main(int argc, char **argv)
 void rename_registers(struct Instruction *ir)
 {
 
+    /* REMATERIALIZABILITY CHECK CODE */
+    VRRematerializable = malloc((opcount + 10) * 1000 * sizeof(int));
+    VRValues = malloc((opcount + 10) * 1000 * sizeof(int));
+
     // Your counter for VRnames
     int VRName = 0;
     // Set up your renaming maps...
@@ -148,6 +156,10 @@ void rename_registers(struct Instruction *ir)
     {
         SRtoVR[i] = -1;
         LU[i] = -1;
+    }
+    for (int i = 0; i < ((opcount + 10) * 100 * sizeof(int)); i++) {
+        /* REMATERIALIZABILITY CHECK CODE */
+        VRRematerializable[i] = -1;
     }
 
     // Main loop over the operations, bottom to top
@@ -178,6 +190,8 @@ void rename_registers(struct Instruction *ir)
         else if (currCode == LOADIL)
         {
             VRName = handleLoadI(currOp, VRName);
+            // Rematerializing code that I no longer think I need:
+            // VRRematerializable[VRName] = 1;
         }
 
         currOp = currOp->prev;
@@ -217,8 +231,8 @@ void reallocate_registers(struct Instruction *ir)
     }
 
     // Initialize PRtoVR, PRNU
-    PRtoVR = malloc(usableprcount * sizeof(int));
-    PRNU = malloc(usableprcount * sizeof(int));
+    PRtoVR = malloc((usableprcount + 10) * sizeof(int));
+    PRNU = malloc((usableprcount + 10) * sizeof(int));
     for (int i = usableprcount - 1; i >= 0; i--)
     {
         PRtoVR[i] = -1;
@@ -227,7 +241,7 @@ void reallocate_registers(struct Instruction *ir)
     }
 
     // Initialize your marking list
-    PRmarker = malloc(usableprcount * sizeof(int));
+    PRmarker = malloc((usableprcount + 10) * sizeof(int));
 
     /* TESTING: make sure everything is initialized right! */
     /*
@@ -243,7 +257,7 @@ void reallocate_registers(struct Instruction *ir)
     while (op->line != -1)
     {
         // clear the mark in each PR
-        // printf("\n\nline: %d\n", op->line);
+        printf("//line: %d\n", op->line);
         clearMarks();
 
         int currCode = op->opcode;
@@ -268,11 +282,74 @@ void reallocate_registers(struct Instruction *ir)
             allocHandleLoadI(op);
         }
 
+        /* JUST FOR TESTING LINE-BY-LINE*/
+        switch (op->opcode)
+        {
+        case LOAD:
+            printf("// load r%d => r%d\n",
+                   op->pr1, op->pr3);
+            break;
+
+        case STORE:
+            printf("// store r%d => r%d\n",
+                   op->pr1, op->pr3);
+            break;
+
+        case LOADIL:
+            if (op->sr1 == 0 && op->vr1 > 30000)
+            {
+                printf("// loadI %d => r%d\n",
+                       op->vr1, op->pr3);
+            }
+            else
+            {
+                printf("// loadI %d => r%d\n",
+                       op->sr1, op->pr3);
+            }
+
+            break;
+
+        case ADD:
+            printf("// add r%d, r%d => r%d\n",
+                   op->pr1, op->pr2, op->pr3);
+            break;
+
+        case SUB:
+            printf("// sub r%d, r%d => r%d\n",
+                   op->pr1, op->pr2, op->pr3);
+            break;
+
+        case MULT:
+            printf("// mult r%d, r%d => r%d\n",
+                   op->pr1, op->pr2, op->pr3);
+            break;
+
+        case LSHIFT:
+            printf("// lshift r%d, r%d => r%d\n",
+                   op->pr1, op->pr2, op->pr3);
+            break;
+
+        case RSHIFT:
+            printf("// rshift r%d, r%d => r%d\n",
+                   op->pr1, op->pr2, op->pr3);
+            break;
+
+        case OUTPUTL:
+            printf("// output %d\n", op->sr1);
+            break;
+
+        case NOPL:
+            printf("// nop\n");
+            break;
+        }
+        /* END LINE-BY-LINE PRINT TEST*/
+
         op = op->next;
-        // checkTables();
-        // printIR2(startir);
-        // printPRtoVR();
-        // printVRtoPR();
+        //checkTables(op->line);
+        //  printIR2(startir);
+        //  printPRtoVR();
+        //  printVRtoPR();
+
     }
 }
 
@@ -336,17 +413,34 @@ int freepr(int pr)
 // Helper function that performs the search for a a PR to spill.
 int pickPRtospill()
 {
+    int rematPR = -3;
+    int rematNU = -4;
     int currPR = -1;
     int currNU = -2;
     for (int i = 0; i < usableprcount; i++)
     {
-        if (PRNU[i] > currNU && PRmarker[i] == 0)
+        if (PRNU[i] > rematNU && PRmarker[i] == 0 && PRtoVR[i] != -1 && VRRematerializable[PRtoVR[i]] == 1)
+        {
+            printf("//PICK: Found rematerializable pr%d (vr%d) with NU %d\n",
+                   i, PRtoVR[i], PRNU[i]);
+            rematPR = i;
+            rematNU = PRNU[i];
+        }
+        else if (PRNU[i] > currNU && PRmarker[i] == 0)
         {
             currPR = i;
             currNU = PRNU[i];
         }
     }
-    return (currPR);
+
+    if (rematPR != -3)
+    {
+        return (rematPR);
+    }
+    else
+    {
+        return (currPR);
+    }
 }
 
 /* Inputs
@@ -356,6 +450,17 @@ int pickPRtospill()
  */
 int spill(struct Instruction *op, int vir_reg, int phys_reg)
 {
+    /* REMATERIALIZABLE CODE */
+    if (VRRematerializable[PRtoVR[phys_reg]] == 1)
+    {
+        printf("//SPILL: Detected rematerializable value in pr%d (vr%d)\n",
+               phys_reg, PRtoVR[phys_reg]);
+        VRtoPR[PRtoVR[phys_reg]] = -1;
+        PRtoVR[phys_reg] = -1;
+        PRNU[phys_reg] = -1;
+        return (1);
+    }
+
     // Get the next memory value
     int memval;
     if (VRtoSpillLoc[PRtoVR[phys_reg]] == -1)
@@ -409,6 +514,31 @@ int spill(struct Instruction *op, int vir_reg, int phys_reg)
  */
 int restore(struct Instruction *op, int vir_reg, int phys_reg)
 {
+    /* REMATERIALIZABLE CODE*/
+    if (VRRematerializable[vir_reg] == 1)
+    {
+        printf("//RESTORE: Rematerializing vr%d into pr%d with value %d\n",
+               vir_reg, phys_reg, VRValues[vir_reg]);
+        struct Instruction *loadIInstr = malloc(sizeof(struct Instruction));
+        loadIInstr->opcode = LOADIL;
+        loadIInstr->sr1 = VRValues[vir_reg]; // Use the original constant
+        loadIInstr->pr3 = phys_reg;          // Put directly in target register
+
+        VRtoPR[vir_reg] = phys_reg;
+        PRtoVR[phys_reg] = vir_reg;
+
+        if (VRValues[vir_reg] == 0 && phys_reg == 1)
+        {
+            printf("// STOP STOP STOP!!!\n");
+        }
+
+        if (insert_instr_after(loadIInstr, op->prev) != 0)
+        {
+            printf("Error with IR insertion in restore (LOADI).\n");
+        }
+
+        return (1);
+    }
 
     // Do a general-purpose restore: insert LOADI and LOAD.
     struct Instruction *loadIInstr = malloc(sizeof(struct Instruction));
@@ -441,7 +571,7 @@ int restore(struct Instruction *op, int vir_reg, int phys_reg)
     PRtoVR[phys_reg] = vir_reg;
 
     // Actually, I don't know exactly what this should be. Awesome.
-    // PRNU[phys_reg] = ;
+    PRNU[phys_reg] = op->nu2;
 
     // TODO: Error handling. You should probably do it now, even.
     return (1);
@@ -746,6 +876,11 @@ int handleLoadI(struct Instruction *currOp, int VRName)
 
     livecount--;
 
+    VRRematerializable[currOp->vr3] = 1;
+    VRValues[currOp->vr3] = currOp->sr1;
+    printf("//MARK: Marked vr%d as rematerializable with value %d\n",
+           currOp->vr3, currOp->sr1);
+
     return VRName;
 }
 
@@ -933,7 +1068,7 @@ void print_renamed_code_pr(struct Instruction *ir)
     }
 }
 
-void checkTables()
+void checkTables(int line)
 {
     for (int i = 0; i < usableprcount; i++)
     {
@@ -955,6 +1090,15 @@ void checkTables()
             printf("VRtoPR[PRtoVR[%d]]: %d\n", i, VRtoPR[PRtoVR[i]]);
             print_renamed_code_pr(startir);
             exit(0);
+        }
+    }
+    for (int i = 0; i < usableprcount; i++)
+    {
+        if (PRtoVR[i] != -1 && line - PRNU[i] > 1 && PRNU[i] != -1)
+        {
+            printf("YOUR TABLES ARE MESSED UP!\n");
+            printf("IT'S AN ISSUE WITH PRNU! PR%d (VR%d) has next use %d at line %d\n",
+                   i, PRtoVR[i], PRNU[i], line);
         }
     }
 }
