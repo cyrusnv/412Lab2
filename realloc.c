@@ -73,6 +73,10 @@ int main(int argc, char **argv)
         printf("        k is the number of registers to use (3-64)\n");
         printf("    ./412alloc -h\n");
         printf("        Displays this help message\n");
+        printf("    ./412alloc -x filename\n");
+        printf("        Scans and parses the input block from filename,\n");
+        printf("        performs renaming on the block, and prints the results\n");
+        printf("        to the standard output stream.");
         return 0;
     }
     else if (argc > 1 && strcmp(argv[1], "-x") == 0)
@@ -82,7 +86,6 @@ int main(int argc, char **argv)
         if (argc != 3)
         {
             fprintf(stderr, "Usage: 412alloc k filename\n");
-            return 1;
         }
     }
     else if (argc > 1)
@@ -192,6 +195,7 @@ void rename_registers(struct Instruction *ir)
             VRName = handleLoadI(currOp, VRName);
             // Rematerializing code that I no longer think I need:
             // VRRematerializable[VRName] = 1;
+            remove_instr(currOp);
         }
 
         currOp = currOp->prev;

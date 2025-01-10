@@ -616,6 +616,21 @@ int insert_instr_after(struct Instruction *instr, struct Instruction *target)
      return (0);
 }
 
+int
+remove_instr(struct Instruction *instr)
+{
+	// printf("remove_fb\n");
+	struct Instruction *curr = instr;
+	struct Instruction *prev = curr->prev;
+	struct Instruction *next = curr->next;
+
+	prev->next = next;
+
+	next->prev = prev;
+
+     return (0);
+}
+
 void finish_memop(int lexeme)
 {
      bool success = 0;

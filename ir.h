@@ -54,6 +54,8 @@ struct Instruction* buildIR(char* filename);
 struct Instruction* bcmalloc(void);
 void printIR2(struct Instruction* ir);
 int insert_instr_after(struct Instruction *instr, struct Instruction *target);
+int remove_instr(struct Instruction *instr);
+
 
 
 #endif
